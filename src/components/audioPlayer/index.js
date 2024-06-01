@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import "./audioPlayer.css";
 import Controls from "./controls";
 import ProgressCircle from "./progressCircle";
 import WaveAnimation from "./waveAnimation";
 
-export default function AudioPLayer({
+export default function AudioPlayer({
   currentTrack,
   currentIndex,
   setCurrentIndex,
@@ -12,55 +12,55 @@ export default function AudioPLayer({
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [trackProgress, setTrackProgress] = useState(0);
-  var audioSrc = total[currentIndex]?.track.preview_url;
+  const audioSrc = total[currentIndex]?.track.preview_url;
 
   const audioRef = useRef(new Audio(total[0]?.track.preview_url));
-
   const intervalRef = useRef();
-
   const isReady = useRef(false);
 
   const { duration } = audioRef.current;
-
   const currentPercentage = duration ? (trackProgress / duration) * 100 : 0;
 
-  const startTimer = () => {
-    clearInterval(intervalRef.current);
+  const handleNext = useCallback(() => {
+    if (currentIndex < total.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      setCurrentIndex(0);
+    }
+  }, [currentIndex, setCurrentIndex, total.length]);
 
+  const handlePrev = useCallback(() => {
+    if (currentIndex - 1 < 0) {
+      setCurrentIndex(total.length - 1);
+    } else {
+      setCurrentIndex(currentIndex - 1);
+    }
+  }, [currentIndex, setCurrentIndex, total.length]);
+
+  const startTimer = useCallback(() => {
+    clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
       if (audioRef.current.ended) {
         handleNext();
       } else {
         setTrackProgress(audioRef.current.currentTime);
       }
-    }, [1000]);
-  };
+    }, 1000);
+  }, [handleNext]);
 
   useEffect(() => {
-    if (audioRef.current.src) {
-      if (isPlaying) {
-        audioRef.current.play();
-        startTimer();
-      } else {
-        clearInterval(intervalRef.current);
-        audioRef.current.pause();
-      }
+    if (isPlaying) {
+      audioRef.current.play();
+      startTimer();
     } else {
-      if (isPlaying) {
-        audioRef.current = new Audio(audioSrc);
-        audioRef.current.play();
-        startTimer();
-      } else {
-        clearInterval(intervalRef.current);
-        audioRef.current.pause();
-      }
+      clearInterval(intervalRef.current);
+      audioRef.current.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, audioSrc, startTimer]);
 
   useEffect(() => {
     audioRef.current.pause();
     audioRef.current = new Audio(audioSrc);
-
     setTrackProgress(audioRef.current.currentTime);
 
     if (isReady.current) {
@@ -70,7 +70,7 @@ export default function AudioPLayer({
     } else {
       isReady.current = true;
     }
-  }, [currentIndex]);
+  }, [currentIndex, audioSrc, startTimer]);
 
   useEffect(() => {
     return () => {
@@ -79,24 +79,9 @@ export default function AudioPLayer({
     };
   }, []);
 
-  const handleNext = () => {
-    if (currentIndex < total.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else setCurrentIndex(0);
-  };
+  const addZero = (n) => (n > 9 ? "" + n : "0" + n);
+  const artists = currentTrack?.album?.artists.map((artist) => artist.name).join(" | ");
 
-  const handlePrev = () => {
-    if (currentIndex - 1 < 0) setCurrentIndex(total.length - 1);
-    else setCurrentIndex(currentIndex - 1);
-  };
-
-  const addZero = (n) => {
-    return n > 9 ? "" + n : "0" + n;
-  };
-  const artists = [];
-  currentTrack?.album?.artists.forEach((artist) => {
-    artists.push(artist.name);
-  });
   return (
     <div className="player-body flex">
       <div className="player-left-body">
@@ -110,7 +95,7 @@ export default function AudioPLayer({
       </div>
       <div className="player-right-body flex">
         <p className="song-title">{currentTrack?.name}</p>
-        <p className="song-artist">{artists.join(" | ")}</p>
+        <p className="song-artist">{artists}</p>
         <div className="player-right-bottom flex">
           <div className="song-duration flex">
             <p className="duration">0:{addZero(Math.round(trackProgress))}</p>
